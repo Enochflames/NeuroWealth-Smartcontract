@@ -139,6 +139,22 @@ export const ActionModal: React.FC<ActionModalProps> = ({
     if (isOpen && portalRoot) amountRef.current?.focus();
   }, [isOpen, portalRoot]);
 
+  // Escape must close the dialog even when focus has left it (for example the
+  // submit button disables while a transaction is pending and focus falls back
+  // to <body>), so listen on the document rather than on the dialog element.
+  const closeRef = useRef<() => void>(() => {});
+  useEffect(() => {
+    if (!isOpen) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        closeRef.current();
+      }
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [isOpen]);
+
   if (!isOpen) return null;
 
   const submission = submissions[type];
@@ -310,6 +326,7 @@ export const ActionModal: React.FC<ActionModalProps> = ({
 
     onClose();
   };
+  closeRef.current = handleResetAndClose;
 
   const modal = (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md">
@@ -320,11 +337,6 @@ export const ActionModal: React.FC<ActionModalProps> = ({
         aria-labelledby="transaction-modal-title"
         aria-describedby="transaction-modal-description"
         onKeyDown={(event) => {
-          if (event.key === "Escape") {
-            event.preventDefault();
-            handleResetAndClose();
-            return;
-          }
           if (event.key !== "Tab" || !dialogRef.current) return;
           const focusable = Array.from(
             dialogRef.current.querySelectorAll<HTMLElement>(

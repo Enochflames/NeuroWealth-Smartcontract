@@ -14,6 +14,8 @@ test.afterAll(async () => {
 
 async function installFreighterAndRpcBoundary(page: Page, scenario: string): Promise<void> {
   await page.addInitScript(({ rpcUrl }) => {
+    // Returning-user state: the first-run onboarding tour would otherwise cover the page.
+    window.localStorage.setItem('neurowealth-onboarding-completed', 'true');
     const scenario = () => new URL(window.location.href).searchParams.get('scenario') ?? 'journey';
     const call = async (method: string, params: Record<string, unknown> = {}) => {
       const response = await fetch(rpcUrl, {
@@ -95,7 +97,9 @@ test('keeps unresolved confirmation visible after closing and reopening the moda
   await page.keyboard.press('Escape');
   await expect(page.getByRole('dialog')).toHaveCount(0);
   await depositButton.click();
-  await expect(page.getByRole('status')).toContainText('local-test-tx-hash');
+  // The hash is displayed truncated; the explorer link carries the full value.
+  await expect(page.getByRole('status')).toContainText('Transaction Hash:');
+  await expect(page.getByRole('link', { name: /view on explorer/i })).toHaveAttribute('href', /local-test-tx-hash-0001/);
   await expect(page.getByRole('button', { name: /confirming transaction/i })).toBeDisabled();
 
   // "Check status later" affordance dismisses the pending submission and unlocks the form
