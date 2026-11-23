@@ -469,7 +469,13 @@ fn test_global_totals_track_multi_asset_deposits() {
     client.deposit_asset(&user, &asset(&env, USDC), &amount);
     client.deposit_asset(&user, &asset(&env, USDT), &amount);
 
-    // Legacy global counters reflect both assets.
-    assert_eq!(client.get_total_assets(), amount * 2);
-    assert_eq!(client.get_total_deposits(), amount * 2);
+    // Native-unit accounting is isolated per asset: multi-asset deposits never
+    // feed the legacy USDC global counters.
+    assert_eq!(client.get_total_assets(), 0);
+    assert_eq!(client.get_total_deposits(), 0);
+    for symbol in [USDC, USDT] {
+        let balance = client.get_asset_balance(&user, &asset(&env, symbol));
+        assert_eq!(balance.shares, amount);
+        assert_eq!(balance.assets, amount);
+    }
 }
