@@ -140,11 +140,7 @@ fn test_expired_entry_is_treated_as_nonexistent() {
     );
 
     // Simulate TTL expiry by removing the persistent entry directly
-    env.as_contract(&contract_id, || {
-        env.storage()
-            .persistent()
-            .remove(&DataKey::Shares(user.clone()))
-    });
+    expire_user_entries(&env, &contract_id, &user);
 
     assert_eq!(
         client.get_shares(&user),
@@ -165,13 +161,6 @@ fn test_touch_restores_ttl_when_below_threshold() {
     let env = Env::default();
     env.mock_all_auths();
 
-    // The host clamps persistent-entry TTLs to `min_persistent_entry_ttl`
-    // (4096 ledgers by default), which would prevent forcing a TTL below
-    // that floor below. Lower it so the test can actually set a 1-ledger TTL.
-    env.ledger().with_mut(|li| {
-        li.min_persistent_entry_ttl = 1;
-    });
-
     let (contract_id, _agent, _owner, usdc_token) = setup_vault_with_token(&env);
     let client = NeuroWealthVaultClient::new(&env, &contract_id);
     let user = Address::generate(&env);
@@ -179,13 +168,7 @@ fn test_touch_restores_ttl_when_below_threshold() {
     mint_and_deposit(&env, &client, &usdc_token, &user, 5_000_000);
 
     // Force TTL to 1 ledger (insufficient headroom) using threshold=0 so it always acts
-    env.as_contract(&contract_id, || {
-        env.storage().persistent().extend_ttl(
-            &DataKey::Shares(user.clone()),
-            0, // always act
-            1, // 1 ledger remaining
-        )
-    });
+    age_shares_ttl_to(&env, &contract_id, &user, 1);
 
     let ttl_before = env.as_contract(&contract_id, || {
         env.storage()
@@ -228,13 +211,7 @@ fn test_touch_does_not_extend_when_ttl_equals_threshold() {
     mint_and_deposit(&env, &client, &usdc_token, &user, 5_000_000);
 
     // Set TTL to exactly USER_SHARES_TTL_THRESHOLD (100)
-    env.as_contract(&contract_id, || {
-        env.storage().persistent().extend_ttl(
-            &DataKey::Shares(user.clone()),
-            0,   // always act
-            100, // extend_to == threshold
-        )
-    });
+    age_shares_ttl_to(&env, &contract_id, &user, 100);
 
     let ttl_at_threshold = env.as_contract(&contract_id, || {
         env.storage()
@@ -264,13 +241,6 @@ fn test_touch_extends_when_ttl_is_one_below_threshold() {
     let env = Env::default();
     env.mock_all_auths();
 
-    // See the comment in `test_touch_restores_ttl_when_below_threshold`:
-    // the host clamps persistent-entry TTLs to `min_persistent_entry_ttl`
-    // (4096 by default), which is above the 99-ledger TTL this test forces.
-    env.ledger().with_mut(|li| {
-        li.min_persistent_entry_ttl = 1;
-    });
-
     let (contract_id, _agent, _owner, usdc_token) = setup_vault_with_token(&env);
     let client = NeuroWealthVaultClient::new(&env, &contract_id);
     let user = Address::generate(&env);
@@ -278,13 +248,7 @@ fn test_touch_extends_when_ttl_is_one_below_threshold() {
     mint_and_deposit(&env, &client, &usdc_token, &user, 5_000_000);
 
     // Set TTL to 99 (threshold - 1)
-    env.as_contract(&contract_id, || {
-        env.storage().persistent().extend_ttl(
-            &DataKey::Shares(user.clone()),
-            0, // always act
-            99,
-        )
-    });
+    age_shares_ttl_to(&env, &contract_id, &user, 99);
 
     let ttl_before = env.as_contract(&contract_id, || {
         env.storage()

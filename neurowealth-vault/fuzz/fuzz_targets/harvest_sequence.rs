@@ -1,26 +1,26 @@
-//! LibFuzzer harness: random deposit / withdraw / harvest / rebalance sequences.
+//! `LibFuzzer` harness: random deposit / withdraw / harvest / rebalance sequences.
 //!
 //! Extends `deposit_withdraw_sequence` to interleave `harvest()` and `rebalance()`
 //! calls, ensuring the harvest code paths handle arbitrary inputs without panics
 //! or state corruption.
 //!
 //! # Allowed panics (documented vault validation)
-//! - `Error(Contract, #37)` — AmountMustBePositive
-//! - `Error(Contract, #38)` — BelowMinimumDeposit
-//! - `Error(Contract, #39)` — MaximumDepositExceeded
-//! - `Error(Contract, #40)` — ExceedsUserDepositCap
-//! - `Error(Contract, #41)` — ExceedsTvlCap
-//! - `Error(Contract, #7)`  — InsufficientLiquidity
-//! - `Error(Contract, #6)`  — SharesToMintMustBePositive
-//! - `Error(Contract, #17)` — UnsupportedProtocol (harvest on "none" protocol)
-//! - `Error(Contract, #43)` — RebalanceCooldownActive
-//! - `Error(Contract, #42)` — MinOutNotMet
+//! - `Error(Contract, #37)` — `AmountMustBePositive`
+//! - `Error(Contract, #38)` — `BelowMinimumDeposit`
+//! - `Error(Contract, #39)` — `MaximumDepositExceeded`
+//! - `Error(Contract, #40)` — `ExceedsUserDepositCap`
+//! - `Error(Contract, #41)` — `ExceedsTvlCap`
+//! - `Error(Contract, #7)`  — `InsufficientLiquidity`
+//! - `Error(Contract, #6)`  — `SharesToMintMustBePositive`
+//! - `Error(Contract, #17)` — `UnsupportedProtocol` (harvest on "none" protocol)
+//! - `Error(Contract, #43)` — `RebalanceCooldownActive`
+//! - `Error(Contract, #42)` — `MinOutNotMet`
 //! - Token transfer failures (`insufficient balance`, etc.)
 //!
 //! # Input format
 //! 4-byte chunks:
 //! - Byte 0: operation selector (0=deposit, 1=withdraw, 2=harvest, 3=rebalance)
-//! - Bytes 1-2: amount / min_out selector (u16 LE, scaled to stroop range)
+//! - Bytes 1-2: amount / `min_out` selector (u16 LE, scaled to stroop range)
 //! - Byte 3: target protocol index for rebalance (0=none, 1=blend, 2=dex)
 //!
 //! # Invariants checked after every successful operation
@@ -31,7 +31,11 @@
 //! - If `total_shares > 0`: `user_balance <= total_assets`
 //! - If `total_shares == 0`: `user_balance == 0`
 //! - `TotalAssets` does not decrease after a harvest (yield can only be non-negative)
-
+#![allow(
+    clippy::needless_pass_by_value,
+    clippy::match_same_arms,
+    clippy::too_many_lines
+)]
 #![no_main]
 
 use libfuzzer_sys::fuzz_target;
@@ -261,7 +265,11 @@ fuzz_target!(|data: &[u8]| {
                 let msg = payload
                     .downcast_ref::<&str>()
                     .copied()
-                    .or_else(|| payload.downcast_ref::<String>().map(|s| s.as_str()))
+                    .or_else(|| {
+                        payload
+                            .downcast_ref::<String>()
+                            .map(std::string::String::as_str)
+                    })
                     .unwrap_or("unknown panic");
                 assert!(
                     is_allowed_panic(msg),

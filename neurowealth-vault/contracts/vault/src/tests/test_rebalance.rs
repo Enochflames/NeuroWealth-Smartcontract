@@ -740,12 +740,14 @@ fn test_rebalance_min_out_panics_when_pool_returns_less_than_requested() {
     let blend_client = MockBlendPoolClient::new(&env, &blend_pool);
 
     client.set_blend_pool(&owner, &blend_pool);
-    blend_client.set_max_supply_limit(&5_000_000_i128);
+    // Pool accepts only 100_000 of the 500_000 leg: a partial fill.
+    blend_client.set_max_supply_limit(&100_000_i128);
 
     let user = Address::generate(&env);
     mint_and_deposit(&env, &client, &usdc_token, &user, 10_000_000_i128);
 
-    client.rebalance(&agent, &symbol_short!("blend"), &500_i128, &10_000_000_i128);
+    // 1% max slippage on the 500_000 leg (min 495_000) is not met by the fill.
+    client.rebalance(&agent, &symbol_short!("blend"), &500_i128, &100_i128);
 }
 
 // ─── Issue #348: DEX approval expiry ledger-boundary test ────────────────────

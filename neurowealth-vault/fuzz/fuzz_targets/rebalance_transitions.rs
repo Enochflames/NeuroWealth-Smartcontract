@@ -1,21 +1,25 @@
-//! LibFuzzer harness: random rebalance transitions against the vault.
+//! `LibFuzzer` harness: random rebalance transitions against the vault.
 //!
 //! Exercises protocol switching (none → blend → none → dex → none)
 //! to catch state-inconsistency bugs during rebalance transitions.
 //!
 //! Allowed panics (documented vault validation):
 //! - `Error(Contract, #35)` — Paused
-//! - `Error(Contract, #19)` — OnlyOwnerCanPause (not relevant here)
-//! - `Error(Contract, #37)` — AmountMustBePositive
-//! - `Error(Contract, #38)` — BelowMinimumDeposit
-//! - `Error(Contract, #39)` — MaximumDepositExceeded
-//! - `Error(Contract, #40)` — ExceedsUserDepositCap
-//! - `Error(Contract, #41)` — ExceedsTvlCap
-//! - `Error(Contract, #6)`  — SharesToMintMustBePositive
-//! - `Error(Contract, #7)`  — InsufficientLiquidity
-//! - `Error(Contract, #17)` — UnsupportedProtocol
+//! - `Error(Contract, #19)` — `OnlyOwnerCanPause` (not relevant here)
+//! - `Error(Contract, #37)` — `AmountMustBePositive`
+//! - `Error(Contract, #38)` — `BelowMinimumDeposit`
+//! - `Error(Contract, #39)` — `MaximumDepositExceeded`
+//! - `Error(Contract, #40)` — `ExceedsUserDepositCap`
+//! - `Error(Contract, #41)` — `ExceedsTvlCap`
+//! - `Error(Contract, #6)`  — `SharesToMintMustBePositive`
+//! - `Error(Contract, #7)`  — `InsufficientLiquidity`
+//! - `Error(Contract, #17)` — `UnsupportedProtocol`
 //! - Token transfer failures
-
+#![allow(
+    clippy::needless_pass_by_value,
+    clippy::match_same_arms,
+    clippy::too_many_lines
+)]
 #![no_main]
 
 use libfuzzer_sys::fuzz_target;
@@ -194,7 +198,7 @@ fuzz_target!(|data: &[u8]| {
                 1 => {
                     // Rebalance to a target protocol
                     let protocol = protocols[protocol_idx].clone();
-                    let expected_apy = (raw as i128) % 10_000;
+                    let expected_apy = i128::from(raw) % 10_000;
                     client.rebalance(&agent, &protocol, &expected_apy, &0);
                 }
                 2 => {
@@ -219,7 +223,11 @@ fuzz_target!(|data: &[u8]| {
                 let msg = payload
                     .downcast_ref::<&str>()
                     .copied()
-                    .or_else(|| payload.downcast_ref::<String>().map(|s| s.as_str()))
+                    .or_else(|| {
+                        payload
+                            .downcast_ref::<String>()
+                            .map(std::string::String::as_str)
+                    })
                     .unwrap_or("unknown panic");
                 assert!(is_allowed_panic(msg), "unexpected panic at step {i}: {msg}");
             }

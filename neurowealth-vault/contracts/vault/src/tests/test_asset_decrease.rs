@@ -99,8 +99,10 @@ fn test_decrease_exceeding_max_bps_rejected() {
     token.mint(&user, &amount);
     client.deposit(&user, &amount);
 
+    // The cap is owner-configured storage (#974); the argument below is ignored.
     // max_decrease_bps = 500 (5 %), old_total = 10M
     // Attempting a 6 % decrease (600_000) exceeds the 5 % cap.
+    client.set_max_decrease_bps(&500);
     let new_total = 9_400_000_i128; // decrease of 600_000
     client.update_total_assets(&agent, &new_total, &true, &500);
 }

@@ -260,8 +260,9 @@ fn test_dex_supply_min_out_enforced() {
     token_client.mint(&vault_id, &100_000_000);
     dex_client.set_max_supply_limit(&40_000_000);
 
-    // Require at least 50 USDC supplied: the 40 USDC fill trips MinOutNotMet (#42).
-    vault_client.rebalance(&agent, &Symbol::new(&env, "dex"), &850, &50_000_000);
+    // Allow at most 10% slippage on the 85 USDC leg (min 76.5 USDC): the 40 USDC
+    // fill trips MinOutNotMet (#42).
+    vault_client.rebalance(&agent, &Symbol::new(&env, "dex"), &850, &1_000);
 }
 
 #[test]
@@ -525,8 +526,8 @@ fn test_rebalance_dex_withdraw_leg_below_min_out_panics() {
     // Cap the pool's withdrawal to 30 USDC — simulates a partial-fill exit.
     dex_client.set_max_withdraw_limit(&30_000_000);
 
-    // Attempt to exit with min_out = 50 USDC.
-    // The pool can only return 30 USDC, which is below min_out — must panic
+    // Attempt to exit the 100 USDC position with 50% max slippage (min 50 USDC).
+    // The pool can only return 30 USDC, which is below the minimum — must panic
     // with MinOutNotMet (#42), leaving no partial state change.
-    vault_client.rebalance(&agent, &Symbol::new(&env, "none"), &0, &50_000_000_i128);
+    vault_client.rebalance(&agent, &Symbol::new(&env, "none"), &0, &5_000_i128);
 }

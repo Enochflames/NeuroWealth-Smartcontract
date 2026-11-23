@@ -53,11 +53,7 @@ fn shares_ttl(env: &Env, contract_id: &Address, user: &Address) -> u32 {
 /// Removes the persistent entry the way a lapsed TTL does, and reports whether
 /// the vault still accounts for the user's claim.
 fn expire_shares_entry(env: &Env, contract_id: &Address, user: &Address) {
-    env.as_contract(contract_id, || {
-        env.storage()
-            .persistent()
-            .remove(&DataKey::Shares(user.clone()))
-    });
+    expire_user_entries(env, contract_id, user);
 }
 
 /// Keeps storage entries alive across the large ledger jumps these tests make.
@@ -80,12 +76,6 @@ fn test_funded_extension_updates_entry_and_preserves_balances() {
     let env = Env::default();
     env.mock_all_auths();
 
-    // The host clamps persistent-entry TTLs to `min_persistent_entry_ttl`
-    // (4096 by default), which would prevent forcing the 1-ledger TTL below.
-    env.ledger().with_mut(|li| {
-        li.min_persistent_entry_ttl = 1;
-    });
-
     let (contract_id, _agent, _owner, usdc_token) = setup_vault_with_token(&env);
     let client = NeuroWealthVaultClient::new(&env, &contract_id);
     let user = Address::generate(&env);
@@ -98,11 +88,7 @@ fn test_funded_extension_updates_entry_and_preserves_balances() {
     let total_shares_before = client.get_total_shares();
 
     // Force the entry under the threshold so the extension path is exercised.
-    env.as_contract(&contract_id, || {
-        env.storage()
-            .persistent()
-            .extend_ttl(&DataKey::Shares(user.clone()), 0, 1)
-    });
+    age_shares_ttl_to(&env, &contract_id, &user, 1);
     let ttl_before = shares_ttl(&env, &contract_id, &user);
 
     assert!(
@@ -380,6 +366,10 @@ fn test_protocol_approval_is_live_until_and_including_the_expiry_ledger() {
     let expiry = token_client.allowance_expiration(&contract_id, &blend_pool);
     assert_eq!(expiry, sequence + ttl);
 
+    // The mock pool consumes the whole allowance during the supply, so grant
+    // an outstanding one with the same expiry to exercise the expiry boundary.
+    token_client.approve(&contract_id, &blend_pool, &1_000_i128, &expiry);
+
     // On the expiry ledger itself the allowance is still valid.
     env.ledger().set_sequence_number(expiry);
     assert!(
@@ -426,6 +416,9 @@ fn test_protocol_approval_state_is_consistent_after_failed_maintenance() {
     client.rebalance(&agent, &symbol_short!("blend"), &700_i128, &0_i128);
 
     let expiration = token_client.allowance_expiration(&contract_id, &blend_pool);
+    // The mock pool consumes the whole allowance during the supply, so grant
+    // an outstanding one with the same expiry for the maintenance check below.
+    token_client.approve(&contract_id, &blend_pool, &1_000_i128, &expiration);
     let allowance = token_client.allowance(&contract_id, &blend_pool);
     assert!(allowance > 0);
     assert_eq!(expiration, env.ledger().sequence() + 30_000);

@@ -1,15 +1,19 @@
-//! LibFuzzer harness: random deposit/withdraw sequences against a mock token vault.
+//! `LibFuzzer` harness: random deposit/withdraw sequences against a mock token vault.
 //!
 //! Allowed panics (documented vault validation):
-//! - `Error(Contract, #37)` — AmountMustBePositive
-//! - `Error(Contract, #38)` — BelowMinimumDeposit
-//! - `Error(Contract, #39)` — MaximumDepositExceeded
-//! - `Error(Contract, #40)` — ExceedsUserDepositCap
-//! - `Error(Contract, #41)` — ExceedsTvlCap
-//! - `Error(Contract, #7)`  — InsufficientLiquidity
-//! - `Error(Contract, #6)`  — SharesToMintMustBePositive
+//! - `Error(Contract, #37)` — `AmountMustBePositive`
+//! - `Error(Contract, #38)` — `BelowMinimumDeposit`
+//! - `Error(Contract, #39)` — `MaximumDepositExceeded`
+//! - `Error(Contract, #40)` — `ExceedsUserDepositCap`
+//! - `Error(Contract, #41)` — `ExceedsTvlCap`
+//! - `Error(Contract, #7)`  — `InsufficientLiquidity`
+//! - `Error(Contract, #6)`  — `SharesToMintMustBePositive`
 //! - Token transfer failures (`insufficient balance`, etc.)
-
+#![allow(
+    clippy::needless_pass_by_value,
+    clippy::match_same_arms,
+    clippy::too_many_lines
+)]
 #![no_main]
 
 use libfuzzer_sys::fuzz_target;
@@ -188,7 +192,11 @@ fuzz_target!(|data: &[u8]| {
                 let msg = payload
                     .downcast_ref::<&str>()
                     .copied()
-                    .or_else(|| payload.downcast_ref::<String>().map(|s| s.as_str()))
+                    .or_else(|| {
+                        payload
+                            .downcast_ref::<String>()
+                            .map(std::string::String::as_str)
+                    })
                     .unwrap_or("unknown panic");
                 assert!(is_allowed_panic(msg), "unexpected panic at step {i}: {msg}");
             }

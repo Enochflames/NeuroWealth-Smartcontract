@@ -1,17 +1,21 @@
-//! LibFuzzer harness: random upgrade timelock state machine transitions.
+//! `LibFuzzer` harness: random upgrade timelock state machine transitions.
 //!
-//! Exercises schedule_upgrade/execute_upgrade/cancel_upgrade interleaved with
+//! Exercises `schedule_upgrade/execute_upgrade/cancel_upgrade` interleaved with
 //! random ledger advances to catch state-inconsistency bugs in the upgrade
 //! timelock logic. This is the highest-stakes admin action as it controls
 //! contract WASM replacement.
 //!
 //! Allowed panics (documented vault validation):
 //! - `Error(Contract, #35)` — Paused
-//! - `Error(Contract, #34)` — OnlyOwner
-//! - `Error(Contract, #48)` — TimelockAlreadyPending
-//! - `Error(Contract, #49)` — NoTimelockPending
-//! - `Error(Contract, #47)` — TimelockNotElapsed
-
+//! - `Error(Contract, #34)` — `OnlyOwner`
+//! - `Error(Contract, #48)` — `TimelockAlreadyPending`
+//! - `Error(Contract, #49)` — `NoTimelockPending`
+//! - `Error(Contract, #47)` — `TimelockNotElapsed`
+#![allow(
+    clippy::needless_pass_by_value,
+    clippy::match_same_arms,
+    clippy::too_many_lines
+)]
 #![no_main]
 
 use libfuzzer_sys::fuzz_target;
@@ -126,7 +130,7 @@ fuzz_target!(|data: &[u8]| {
                 }
                 3 => {
                     // advance ledger
-                    let advance = (param as u32) % 200;
+                    let advance = u32::from(param) % 200;
                     let current = env.ledger().sequence();
                     env.ledger().set_sequence_number(current + advance);
                 }
@@ -142,22 +146,16 @@ fuzz_target!(|data: &[u8]| {
                     (Some(hash), Some(expiry)) => {
                         assert!(
                             actual_pending.is_some(),
-                            "pending state mismatch at step {}: expected Some, got None",
-                            i
+                            "pending state mismatch at step {i}: expected Some, got None"
                         );
                         let (actual_hash, actual_expiry) = actual_pending.unwrap();
-                        assert_eq!(actual_hash, hash, "pending hash mismatch at step {}", i);
-                        assert_eq!(
-                            actual_expiry, expiry,
-                            "pending expiry mismatch at step {}",
-                            i
-                        );
+                        assert_eq!(actual_hash, hash, "pending hash mismatch at step {i}");
+                        assert_eq!(actual_expiry, expiry, "pending expiry mismatch at step {i}");
                     }
                     (None, None) => {
                         assert!(
                             actual_pending.is_none(),
-                            "pending state mismatch at step {}: expected None, got Some",
-                            i
+                            "pending state mismatch at step {i}: expected None, got Some"
                         );
                     }
                     _ => unreachable!(),
@@ -167,7 +165,11 @@ fuzz_target!(|data: &[u8]| {
                 let msg = payload
                     .downcast_ref::<&str>()
                     .copied()
-                    .or_else(|| payload.downcast_ref::<String>().map(|s| s.as_str()))
+                    .or_else(|| {
+                        payload
+                            .downcast_ref::<String>()
+                            .map(std::string::String::as_str)
+                    })
                     .unwrap_or("unknown panic");
                 assert!(is_allowed_panic(msg), "unexpected panic at step {i}: {msg}");
             }

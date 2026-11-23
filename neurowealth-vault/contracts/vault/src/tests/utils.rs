@@ -620,7 +620,51 @@ pub fn setup_vault(env: &Env) -> (Address, Address, Address) {
 }
 
 /// Sets up a vault with a real deployed TestToken contract.
+///
+/// The vault initializes with a non-zero default `MinHoldingPeriod` (#975).
+/// Most tests deposit and withdraw within a single ledger, so this helper
+/// clears it. Tests that exercise the default use
+/// [`setup_vault_with_token_default_holding`] instead.
 pub fn setup_vault_with_token(env: &Env) -> (Address, Address, Address, Address) {
+    let (contract_id, agent, owner, usdc_token) = setup_vault_with_token_default_holding(env);
+    env.as_contract(&contract_id, || {
+        env.storage()
+            .instance()
+            .remove(&crate::DataKey::MinHoldingPeriod);
+    });
+    (contract_id, agent, owner, usdc_token)
+}
+
+/// Removes every persistent per-user record, the way a real TTL lapse would
+/// (all of a user's entries share one rent schedule).
+pub fn expire_user_entries(env: &Env, contract_id: &Address, user: &Address) {
+    env.as_contract(contract_id, || {
+        let p = env.storage().persistent();
+        p.remove(&crate::DataKey::Shares(user.clone()));
+        p.remove(&crate::DataKey::LockState(user.clone()));
+        p.remove(&crate::DataKey::LastDepositLedger(user.clone()));
+        p.remove(&crate::DataKeyExt::DepositSnapshot(user.clone()));
+        p.remove(&crate::DataKey::UserStrategy(user.clone()));
+    });
+}
+
+/// Lowers a user's `Shares` TTL to exactly `target_ttl` ledgers by advancing
+/// the ledger clock. `extend_ttl` can only raise a TTL, so ageing the entry is
+/// the only way to put it below the extension threshold.
+pub fn age_shares_ttl_to(env: &Env, contract_id: &Address, user: &Address, target_ttl: u32) {
+    use soroban_sdk::testutils::{storage::Persistent as _, Ledger as _};
+    let current = env.as_contract(contract_id, || {
+        env.storage()
+            .persistent()
+            .get_ttl(&crate::DataKey::Shares(user.clone()))
+    });
+    let advance = current.saturating_sub(target_ttl);
+    env.ledger().with_mut(|li| li.sequence_number += advance);
+}
+
+/// Like [`setup_vault_with_token`] but keeps the production default
+/// `MinHoldingPeriod` (120 ledgers) set by `initialize`.
+pub fn setup_vault_with_token_default_holding(env: &Env) -> (Address, Address, Address, Address) {
     let deployer = Address::generate(env);
     let salt = BytesN::from_array(env, &[0u8; 32]);
     let contract_id = env

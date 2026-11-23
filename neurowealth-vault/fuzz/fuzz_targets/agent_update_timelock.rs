@@ -1,4 +1,4 @@
-//! LibFuzzer harness: random propose/confirm/cancel sequences for agent updates.
+//! `LibFuzzer` harness: random propose/confirm/cancel sequences for agent updates.
 //!
 //! Exercises the two-step timelock for `update_agent()`:
 //! - only one pending proposal may exist at a time
@@ -7,10 +7,14 @@
 //! - scheduled `effective_ledger` is always in the future
 //!
 //! Allowed panics (documented vault validation):
-//! - `Error(Contract, #48)` — TimelockAlreadyPending
-//! - `Error(Contract, #49)` — NoTimelockPending
-//! - `Error(Contract, #50)` — TimelockNotExpired
-
+//! - `Error(Contract, #48)` — `TimelockAlreadyPending`
+//! - `Error(Contract, #49)` — `NoTimelockPending`
+//! - `Error(Contract, #50)` — `TimelockNotExpired`
+#![allow(
+    clippy::needless_pass_by_value,
+    clippy::match_same_arms,
+    clippy::too_many_lines
+)]
 #![no_main]
 
 use libfuzzer_sys::fuzz_target;
@@ -224,7 +228,11 @@ fuzz_target!(|data: &[u8]| {
                 let msg = payload
                     .downcast_ref::<&str>()
                     .copied()
-                    .or_else(|| payload.downcast_ref::<String>().map(|s| s.as_str()))
+                    .or_else(|| {
+                        payload
+                            .downcast_ref::<String>()
+                            .map(std::string::String::as_str)
+                    })
                     .unwrap_or("unknown panic");
                 assert!(
                     is_allowed_panic(msg),

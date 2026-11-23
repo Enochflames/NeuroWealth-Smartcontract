@@ -7966,7 +7966,7 @@ impl NeuroWealthVault {
             // The caller-supplied argument is ignored to prevent bypassing the cap.
             // Floor: 100 bps (1%) to prevent disabling decreases entirely.
             // Ceiling: 10_000 bps (100%) enforced by set_max_decrease_bps.
-            let stored_max_bps = env
+            let stored_max_bps: u32 = env
                 .storage()
                 .instance()
                 .get(&DataKey::MaxDecreaseBps)
@@ -8890,7 +8890,13 @@ impl NeuroWealthVault {
             }
         }
 
-        if !has_shares && !has_lock && !has_deposit && !has_snapshot && !has_strategy && !has_asset_shares {
+        if !has_shares
+            && !has_lock
+            && !has_deposit
+            && !has_snapshot
+            && !has_strategy
+            && !has_asset_shares
+        {
             return false;
         }
 
@@ -10000,10 +10006,9 @@ impl NeuroWealthVault {
         env.storage()
             .instance()
             .set(&DataKeyExt::WithdrawalRequest(request_id), &request);
-        env.storage().instance().extend_ttl(
-            USER_SHARES_TTL_THRESHOLD,
-            USER_SHARES_TTL_EXTEND_TO,
-        );
+        env.storage()
+            .instance()
+            .extend_ttl(USER_SHARES_TTL_THRESHOLD, USER_SHARES_TTL_EXTEND_TO);
 
         // Append to order queue
         let mut order: Vec<u32> = env

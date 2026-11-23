@@ -1,4 +1,4 @@
-//! LibFuzzer harness: interleaved admin timelock state machine (upgrade + agent).
+//! `LibFuzzer` harness: interleaved admin timelock state machine (upgrade + agent).
 //!
 //! Randomly sequences schedule/execute/cancel for BOTH the upgrade timelock
 //! and the agent-update timelock, plus random ledger advances. This catches
@@ -7,12 +7,16 @@
 //!
 //! Allowed panics (documented vault validation):
 //! - `Error(Contract, #35)` — Paused
-//! - `Error(Contract, #34)` — OnlyOwner
-//! - `Error(Contract, #48)` — TimelockAlreadyPending
-//! - `Error(Contract, #49)` — NoTimelockPending
-//! - `Error(Contract, #47)` — TimelockNotElapsed (upgrade)
-//! - `Error(Contract, #50)` — TimelockNotExpired (agent)
-
+//! - `Error(Contract, #34)` — `OnlyOwner`
+//! - `Error(Contract, #48)` — `TimelockAlreadyPending`
+//! - `Error(Contract, #49)` — `NoTimelockPending`
+//! - `Error(Contract, #47)` — `TimelockNotElapsed` (upgrade)
+//! - `Error(Contract, #50)` — `TimelockNotExpired` (agent)
+#![allow(
+    clippy::needless_pass_by_value,
+    clippy::match_same_arms,
+    clippy::too_many_lines
+)]
 #![no_main]
 
 use libfuzzer_sys::fuzz_target;
@@ -186,7 +190,7 @@ fuzz_target!(|data: &[u8]| {
 
                 // ── Ledger control ──
                 6 => {
-                    let advance_by = ((param as u32) % 200) + 1;
+                    let advance_by = (u32::from(param) % 200) + 1;
                     let next_sequence = env.ledger().sequence().saturating_add(advance_by);
                     env.ledger().set_sequence_number(next_sequence);
                 }
@@ -293,7 +297,11 @@ fuzz_target!(|data: &[u8]| {
                 let msg = payload
                     .downcast_ref::<&str>()
                     .copied()
-                    .or_else(|| payload.downcast_ref::<String>().map(|s| s.as_str()))
+                    .or_else(|| {
+                        payload
+                            .downcast_ref::<String>()
+                            .map(std::string::String::as_str)
+                    })
                     .unwrap_or("unknown panic");
                 assert!(
                     is_allowed_panic(msg),
