@@ -6,5 +6,9 @@
   ],
   "scripts": {
     "test": "npm run build --workspace=@neurowealth/vault-client && npm run test --workspaces --if-present"
+  },
+  "overrides": {
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
   }
 }

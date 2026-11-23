@@ -312,6 +312,12 @@ jobs:
                 "$WASM_FILE" \
                 -o "$WASM_FILE"
 
+              # The steps below use repo-root paths (scripts/, .github/, and
+              # `git archive ... neurowealth-vault`), but this job runs inside
+              # neurowealth-vault/. CARGO_TARGET_DIR is absolute in CI, so the
+              # WASM path stays valid after changing directory.
+              cd "$(git rev-parse --show-toplevel)"
+
               WASM_SIZE=$(stat -c%s "$WASM_FILE")
               LIMIT="${WASM_SIZE_LIMIT_BYTES:-1500000}"
               BASE_BRANCH="${GITHUB_BASE_REF:-${GITHUB_REF_NAME}}"

@@ -10,7 +10,7 @@
     "dev": "ts-node src/index.ts",
     "lint": "eslint src --ext .ts",
     "lint:fix": "eslint src --ext .ts --fix",
-    "test": "tsc && node --test dist"
+    "test": "tsc && env NODE_ENV=test ENCRYPTION_KEY=test-encryption-key-at-least-32-chars-long-0123 PHONE_HASH_SALT=test-phone-salt-0123456789 DATABASE_URL=postgresql://neurowealth_test@localhost:5432/neurowealth_test TWILIO_AUTH_TOKEN=test-twilio-auth-token-0123456789 node --test $(find dist -name '*.test.js')"
   },
   "dependencies": {
     "@neurowealth/vault-client": "file:../packages/vault-client",
