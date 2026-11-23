@@ -549,16 +549,21 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
 
-      - name: Run cargo-deny
-        uses: EmbarkStudios/cargo-deny-action@10d8902cf9225c404574ce39c45d5d26c3047464
+      # The cargo-deny-action image bundles Cargo 1.80, which cannot parse
+      # crates that require the `edition2024` feature (e.g. time-core 0.1.8)
+      # and fails `cargo metadata`. Run cargo-deny with a current toolchain.
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec
         with:
-          command: check
-          # The vault workspace manifest drives the dependency graph.
-          manifest-path: ./neurowealth-vault/Cargo.toml
-          # Policy lives in deny.toml at the repo root (auto-discovered by cargo-deny).
-          # Respect the [graph] settings in deny.toml instead of forcing
-          # --all-features (the action's default).
-          arguments: ""
+          toolchain: stable
+
+      - name: Install cargo-deny
+        run: cargo install cargo-deny --locked
+
+      - name: Run cargo-deny
+        # The vault workspace manifest drives the dependency graph. Policy
+        # lives in deny.toml at the repo root (auto-discovered by cargo-deny).
+        run: cargo deny --manifest-path ./neurowealth-vault/Cargo.toml check
 
       - name: Open or update advisory tracking issue
         # Only scheduled runs manage the tracking issue: a per-PR failure is
